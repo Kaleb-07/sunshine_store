@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model Deposit {
+  id               String    @id @default(uuid())
+  transactionId    String
+  fullName         String
+  phoneNumber      String
+  itemType         String
+  bottlesTaken     Int
+  pricePerBottle   Float?
+  depositPerBottle Float     @default(50)
+  totalDeposit     Float
+  amountPaid       Float?
+  returned         Boolean   @default(false)
+  returnedDate     DateTime?
+  notes            String?
+  regularCustomer  Boolean   @default(false)
+  policyExplained  Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  @@index([transactionId])
+  @@index([phoneNumber])
+  @@index([returned])
+  @@index([createdAt])
+}
