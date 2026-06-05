@@ -20,6 +20,7 @@ import {
   validateQuantity,
   validatePrice,
   validateDeposit,
+  validateNotes,
 } from '@/lib/validation'
 
 type Props = {
@@ -38,6 +39,7 @@ export default function PageOne({ data, setData, onNext }: Props) {
   const [phoneError, setPhoneError] = useState('')
   const [itemErrors, setItemErrors] = useState<Record<number, { quantity?: string; price?: string }>>({})
   const [depositError, setDepositError] = useState('')
+  const [notesError, setNotesError] = useState('')
 
   const update = <K extends keyof FormData>(key: K, val: FormData[K]) =>
     setData((p) => ({ ...p, [key]: val }))
@@ -92,6 +94,12 @@ export default function PageOne({ data, setData, onNext }: Props) {
   const validateDepositAmount = (value: number) => {
     const result = validateDeposit(value)
     setDepositError(result.error || '')
+    return result.valid
+  }
+
+  const validateNotesField = (value: string) => {
+    const result = validateNotes(value)
+    setNotesError(result.error || '')
     return result.valid
   }
 
@@ -366,7 +374,9 @@ export default function PageOne({ data, setData, onNext }: Props) {
             placeholder="e.g. referred by someone"
             value={data.notes}
             onChange={(e) => update('notes', e.target.value)}
+            onBlur={(e) => validateNotesField(e.target.value)}
           />
+          {notesError && <FormError message={notesError} />}
         </div>
 
         <Button
