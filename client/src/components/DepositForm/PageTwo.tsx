@@ -10,6 +10,7 @@ import { createDeposit } from '../../lib/api'
 import type { FormData } from '../../types'
 import { FormError } from '@/components/ui/form-error'
 import { validateAmountPaid } from '@/lib/validation'
+import type { DepositReceiptData } from '../Receipt/DepositReceipt'
 
 type Props = {
   data: FormData
@@ -17,7 +18,7 @@ type Props = {
   totalBottles: number
   totalDeposit: number
   onBack: () => void
-  onSuccess: () => void
+  onSuccess: (receipt: DepositReceiptData) => void
 }
 
 export default function PageTwo({
@@ -62,7 +63,7 @@ export default function PageTwo({
 
     setSaving(true)
     try {
-      await createDeposit({
+      const response = await createDeposit({
         fullName: data.fullName,
         phoneNumber: data.phoneNumber,
         items: validItems.map((i) => ({
@@ -76,8 +77,34 @@ export default function PageTwo({
         notes: data.notes || undefined,
         regularCustomer: data.regularCustomer,
       })
+      
       toast.success('Deposit saved successfully!')
-      onSuccess()
+      
+      // Pass receipt data to success screen
+      if (response.receipt) {
+        onSuccess(response.receipt)
+      } else {
+        // Fallback if server doesn't return receipt
+        onSuccess({
+          transactionId: response.transactionId,
+          fullName: data.fullName,
+          phoneNumber: data.phoneNumber,
+          items: validItems.map((i) => ({
+            itemType: i.itemType,
+            quantity: typeof i.quantity === 'number' ? i.quantity : 1,
+            pricePerBottle: typeof i.pricePerBottle === 'number' ? i.pricePerBottle : null,
+            depositPerBottle: i.depositPerBottle,
+            itemTotal: (typeof i.pricePerBottle === 'number' ? i.pricePerBottle : 0) * (typeof i.quantity === 'number' ? i.quantity : 1),
+            depositTotal: i.depositPerBottle * (typeof i.quantity === 'number' ? i.quantity : 1),
+          })),
+          totalAmount: totalAmount,
+          totalDeposit: totalDeposit,
+          amountPaid: typeof data.amountPaid === 'number' ? data.amountPaid : 0,
+          regularCustomer: data.regularCustomer,
+          notes: data.notes || '',
+          createdAt: new Date().toISOString(),
+        })
+      }
     } catch (error: any) {
       // Parse server validation errors
       if (error.response?.data?.details) {

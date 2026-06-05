@@ -5,10 +5,12 @@ import PageTwo from './PageTwo'
 import SuccessScreen from './SuccessScreen'
 import type { FormData } from '../../types'
 import { initialFormData } from './constants'
+import type { DepositReceiptData } from '../Receipt/DepositReceipt'
 
 export default function DepositForm() {
   const [page, setPage] = useState<1 | 2 | 'success'>(1)
   const [data, setData] = useState<FormData>(initialFormData)
+  const [receiptData, setReceiptData] = useState<DepositReceiptData | undefined>()
 
   const totalBottles = data.items.reduce(
     (sum, i) => sum + (typeof i.quantity === 'number' ? i.quantity : 0), 0
@@ -17,8 +19,14 @@ export default function DepositForm() {
     (sum, i) => sum + (typeof i.quantity === 'number' ? i.quantity : 0) * i.depositPerBottle, 0
   )
 
+  const handleSuccess = (receipt: DepositReceiptData) => {
+    setReceiptData(receipt)
+    setPage('success')
+  }
+
   const reset = () => {
     setData(initialFormData)
+    setReceiptData(undefined)
     setPage(1)
   }
 
@@ -58,10 +66,10 @@ export default function DepositForm() {
           totalBottles={totalBottles}
           totalDeposit={totalDeposit}
           onBack={() => setPage(1)}
-          onSuccess={() => setPage('success')}
+          onSuccess={handleSuccess}
         />
       )}
-      {page === 'success' && <SuccessScreen onReset={reset} />}
+      {page === 'success' && <SuccessScreen onReset={reset} receiptData={receiptData} />}
     </div>
   )
 }

@@ -1,15 +1,18 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, ChevronDown, ChevronRight, StickyNote } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, StickyNote, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeposits, useMarkReturned } from '../../hooks/useDeposits'
 import { groupRecords, getDaysSince } from '../../lib/utils'
 import type { GroupedRow } from '../../types'
 import StatsHeader from './StatsHeader'
 import FilterBar from './FilterBar'
+import { ReturnReceipt, type ReturnReceiptData } from '../Receipt/ReturnReceipt'
+import { printElement } from '@/lib/print'
 
 type Filter = 'all' | 'pending' | 'returned' | 'overdue'
 
@@ -27,12 +30,13 @@ function DaysBadge({ days, returned }: { days: number; returned?: boolean }) {
 }
 
 function TransactionRow({
-  row, index, onToggleReturned, isToggling,
+  row, index, onToggleReturned, isToggling, onPrintReceipt,
 }: {
   row: GroupedRow
   index: number
   onToggleReturned: (row: GroupedRow) => void
   isToggling: boolean
+  onPrintReceipt: (row: GroupedRow) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasMultiple = row.items.length > 1
@@ -102,12 +106,25 @@ function TransactionRow({
             : '—'}
         </td>
         <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-          <Checkbox
-            checked={row.returned}
-            disabled={isToggling}
-            onCheckedChange={() => onToggleReturned(row)}
-            className="w-5 h-5"
-          />
+          <div className="flex items-center justify-center gap-2">
+            {row.returned && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => onPrintReceipt(row)}
+                title="Print return receipt"
+              >
+                <Printer className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <Checkbox
+              checked={row.returned}
+              disabled={isToggling}
+              onCheckedChange={() => onToggleReturned(row)}
+              className="w-5 h-5"
+            />
+          </div>
         </td>
       </tr>
 
@@ -148,6 +165,8 @@ export default function RecordsDashboard() {
   const { mutate: toggleReturned, isPending, variables } = useMarkReturned()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [returnReceiptData, setReturnReceiptData] = useState<ReturnReceiptData | null>(null)
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   const grouped = useMemo(() => groupRecords(records), [records])
 
@@ -184,6 +203,47 @@ export default function RecordsDashboard() {
       { id: row.ids[0], returned: !row.returned, transactionId: row.transactionId },
       { onError: () => toast.error('Failed to update') }
     )
+  }
+
+  const handlePrintReceipt = (row: GroupedRow) => {
+    if (!row.returned || !row.returnedDate) {
+      toast.error('Cannot print receipt for non-returned items')
+      return
+    }
+
+    const receiptData: ReturnReceiptData = {
+      transactionId: row.transactionId || '',
+      fullName: row.fullName,
+      phoneNumber: row.phoneNumber,
+      items: row.items.map((item) => ({
+        itemType: item.itemType,
+        quantity: item.bottlesTaken,
+        pricePerBottle: item.pricePerBottle,
+        depositPerBottle: item.depositPerBottle,
+        itemCost: item.itemCost,
+        depositTotal: item.totalDeposit,
+      })),
+      totalItemCost: row.totalItemCost,
+      totalDeposit: row.totalDeposit,
+      amountPaid: row.amountPaid,
+      refundAmount: Math.max(0, row.amountPaid - row.totalItemCost),
+      returnedDate: row.returnedDate,
+      depositDate: row.createdAt || new Date().toISOString(),
+      notes: row.notes,
+    }
+
+    setReturnReceiptData(receiptData)
+
+    // Wait for receipt to render, then print
+    setTimeout(() => {
+      if (receiptRef.current) {
+        try {
+          printElement(receiptRef.current)
+        } catch (error) {
+          toast.error('Failed to print receipt')
+        }
+      }
+    }, 100)
   }
 
   if (isLoading) {
@@ -245,6 +305,7 @@ export default function RecordsDashboard() {
                   row={r}
                   index={idx}
                   onToggleReturned={handleToggle}
+                  onPrintReceipt={handlePrintReceipt}
                   isToggling={isPending && variables?.id === r.ids[0]}
                 />
               ))}
@@ -255,6 +316,13 @@ export default function RecordsDashboard() {
         <p className="text-xs text-muted-foreground text-center">
           {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} • {filter === 'all' ? 'Showing all' : filter}
         </p>
+
+        {/* Hidden return receipt for printing */}
+        {returnReceiptData && (
+          <div className="hidden">
+            <ReturnReceipt ref={receiptRef} data={returnReceiptData} />
+          </div>
+        )}
       </CardContent>
     </Card>
   )

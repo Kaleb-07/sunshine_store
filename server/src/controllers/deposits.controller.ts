@@ -57,12 +57,37 @@ export const createDeposit = async (
       regularCustomer: regularCustomer ?? false,
     }))
 
-    await prisma.deposit.createMany({ data: records })
+    const createdRecords = await prisma.deposit.createMany({ data: records })
+
+    // Fetch the created records for receipt
+    const deposits = await prisma.deposit.findMany({
+      where: { transactionId },
+      orderBy: { createdAt: 'asc' },
+    })
 
     res.status(201).json({
       success: true,
-      count: records.length,
+      count: createdRecords.count,
       transactionId,
+      receipt: {
+        transactionId,
+        fullName,
+        phoneNumber,
+        items: deposits.map((d) => ({
+          itemType: d.itemType,
+          quantity: d.bottlesTaken,
+          pricePerBottle: d.pricePerBottle,
+          depositPerBottle: d.depositPerBottle,
+          itemTotal: (d.pricePerBottle || 0) * d.bottlesTaken,
+          depositTotal: d.totalDeposit,
+        })),
+        totalAmount: deposits.reduce((s, d) => s + (d.pricePerBottle || 0) * d.bottlesTaken, 0),
+        totalDeposit: deposits.reduce((s, d) => s + d.totalDeposit, 0),
+        amountPaid: amountPaid ?? 0,
+        regularCustomer,
+        notes: notes ?? '',
+        createdAt: deposits[0].createdAt,
+      },
     })
   } catch (err) {
     next(err)
