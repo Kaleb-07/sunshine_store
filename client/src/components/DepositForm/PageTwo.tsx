@@ -54,6 +54,12 @@ export default function PageTwo({
       return
     }
 
+    // Validate policy checkbox
+    if (!data.policyExplained) {
+      toast.error('Please confirm you explained the return policy')
+      return
+    }
+
     setSaving(true)
     try {
       await createDeposit({
@@ -74,9 +80,19 @@ export default function PageTwo({
       onSuccess()
     } catch (error: any) {
       // Parse server validation errors
-      if (error.response?.data?.errors) {
-        const errors = error.response.data.errors
-        toast.error(`Validation error: ${errors.map((e: any) => e.message).join(', ')}`)
+      if (error.response?.data?.details) {
+        // Format Zod validation errors
+        const details = error.response.data.details
+        const errorMessages = Object.entries(details)
+          .flatMap(([field, messages]: any) => {
+            if (Array.isArray(messages)) {
+              return messages.map((msg: any) => `${field}: ${msg}`)
+            }
+            return [`${field}: ${messages}`]
+          })
+          .slice(0, 2) // Show first 2 errors
+        
+        toast.error(errorMessages.join('\n'))
       } else if (error.response?.data?.message) {
         toast.error(error.response.data.message)
       } else {

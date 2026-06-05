@@ -39,7 +39,9 @@ export const createDepositSchema = z.object({
     .min(0, 'Amount paid cannot be negative')
     .optional(),
   
-  policyExplained: z.boolean(),
+  policyExplained: z.boolean().refine((val) => val === true, {
+    message: 'Policy must be explained to customer',
+  }),
   
   notes: z
     .string()
