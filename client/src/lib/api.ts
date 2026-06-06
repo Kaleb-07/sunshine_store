@@ -54,3 +54,28 @@ export const searchCustomers = async (q: string): Promise<
   const { data } = await api.get('/customers/search', { params: { q } })
   return data
 }
+
+// ── Export / Backup / Import ──────────────────────────
+export const downloadExportCSV = async () => {
+  const { data } = await api.get('/export/csv', {
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(data)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `deposits-export-${new Date().toISOString().slice(0, 10)}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+export const downloadBackup = async () => {
+  const { data } = await api.get('/backup')
+  return data
+}
+
+export const importData = async (payload: { data: any[] }) => {
+  const { data } = await api.post('/backup/import', payload)
+  return data
+}

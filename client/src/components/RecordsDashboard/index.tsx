@@ -4,15 +4,18 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, ChevronDown, ChevronRight, StickyNote, Printer } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, StickyNote, Printer, Download, Upload, Database } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeposits, useMarkReturned } from '../../hooks/useDeposits'
 import { groupRecords, getDaysSince } from '../../lib/utils'
+import { groupedRowsToCSV, downloadCSV, downloadJSON } from '../../lib/export'
+import { downloadBackup } from '../../lib/api'
 import type { GroupedRow } from '../../types'
 import StatsHeader from './StatsHeader'
 import FilterBar from './FilterBar'
 import { ReturnReceipt, type ReturnReceiptData } from '../Receipt/ReturnReceipt'
 import { printElement } from '@/lib/print'
+import ImportDialog from '../ImportDialog'
 
 type Filter = 'all' | 'pending' | 'returned' | 'overdue'
 
@@ -166,6 +169,7 @@ export default function RecordsDashboard() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [returnReceiptData, setReturnReceiptData] = useState<ReturnReceiptData | null>(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const receiptRef = useRef<HTMLDivElement>(null)
 
   const grouped = useMemo(() => groupRecords(records), [records])
@@ -246,6 +250,27 @@ export default function RecordsDashboard() {
     }, 100)
   }
 
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      toast.error('No data to export')
+      return
+    }
+    const csv = groupedRowsToCSV(filtered)
+    const label = filter === 'all' ? 'all' : filter
+    downloadCSV(csv, `sunshine-deposits-${label}-${new Date().toISOString().slice(0, 10)}.csv`)
+    toast.success(`Exported ${filtered.length} transactions`)
+  }
+
+  const handleBackup = async () => {
+    try {
+      const backup = await downloadBackup()
+      downloadJSON(backup, `sunshine-backup-${new Date().toISOString().slice(0, 10)}.json`)
+      toast.success(`Backup created with ${backup.totalRecords} records`)
+    } catch {
+      toast.error('Failed to create backup')
+    }
+  }
+
   if (isLoading) {
     return (
       <Card className="shadow-md w-full">
@@ -260,6 +285,21 @@ export default function RecordsDashboard() {
     <Card className="shadow-md w-full">
       <CardContent className="p-4 space-y-4">
         <StatsHeader />
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV}>
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleBackup}>
+            <Database className="w-3.5 h-3.5" />
+            Backup
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+            <Upload className="w-3.5 h-3.5" />
+            Import
+          </Button>
+        </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -323,6 +363,12 @@ export default function RecordsDashboard() {
             <ReturnReceipt ref={receiptRef} data={returnReceiptData} />
           </div>
         )}
+
+        <ImportDialog
+          open={importDialogOpen}
+          onClose={() => setImportDialogOpen(false)}
+          onSuccess={() => window.location.reload()}
+        />
       </CardContent>
     </Card>
   )

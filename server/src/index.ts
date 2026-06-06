@@ -7,6 +7,8 @@ import depositsRouter from './routes/deposits'
 import returnsRouter from './routes/returns'
 import customersRouter from './routes/customers'
 import statsRouter from './routes/stats'
+import exportRouter from './routes/export'
+import backupRouter from './routes/backup'
 
 // Load environment variables - try both locations
 dotenv.config({ path: path.join(__dirname, '.env') })
@@ -28,6 +30,8 @@ app.use('/api/deposits', depositsRouter)
 app.use('/api/deposits', returnsRouter)   // PATCH /api/deposits/:id/return
 app.use('/api/customers', customersRouter)
 app.use('/api/stats', statsRouter)
+app.use('/api/export', exportRouter)
+app.use('/api/backup', backupRouter)
 
 // ── Health check ───────────────────────────────────────
 app.get('/api/health', (_: Request, res: Response) => {
